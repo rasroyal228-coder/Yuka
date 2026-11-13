@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>$YUKA Clicker</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: #09090b;
+            color: #f4f4f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+            overflow-x: hidden;
+        }
+        .chrome-text {
+            background: linear-gradient(180deg, #ffffff 0%, #d4d4d8 52%, #71717a 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .chrome-card {
+            background: linear-gradient(145deg, rgba(32, 32, 38, 0.92), rgba(16, 16, 20, 0.96));
+            border: 1px solid rgba(161, 161, 170, 0.16);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+        .chrome-btn {
+            background: linear-gradient(180deg, #ffffff 0%, #d4d4d8 100%);
+            color: #09090b;
+            box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15), inset 0 1px 0 #ffffff;
+            transition: transform 0.12s ease, opacity 0.15s ease;
+        }
+        .chrome-btn:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+        .chrome-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        #coinWrapper {
+            perspective: 900px;
+        }
+        #coinTiltTarget {
+            transform-style: preserve-3d;
+            transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
+        }
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, 0) scale(0.85);
+            }
+            65% {
+                opacity: 1;
+                transform: translate(-50%, -62px) scale(1.1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -95px) scale(0.95);
+            }
+        }
+        .floating-plus {
+            position: fixed;
+            pointer-events: none;
+            font-weight: 900;
+            font-size: 1.35rem;
+            color: #ffffff;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85), 0 0 18px rgba(255, 255, 255, 0.5);
+            animation: floatUp 0.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            z-index: 60;
+        }
+        @keyframes sparkFly {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--dx), var(--dy)) scale(0.2);
+            }
+        }
+        .tap-spark {
+            position: fixed;
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            background: radial-gradient(circle, #ffffff 0%, #a1a1aa 100%);
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            animation: sparkFly 0.52s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            z-index: 55;
+        }
+        @keyframes coinPulseRing {
+            0% {
+                opacity: 0.65;
+                transform: scale(0.88);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.32);
+            }
+        }
+        .pulse-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 9999px;
+            border: 2px solid rgba(255, 255, 255, 0.55);
+            pointer-events: none;
+            animation: coinPulseRing 0.5s ease-out forwards;
+        }
+        /* Скрытие скроллбара для ленты шагов */
+        ::-webkit-scrollbar {
+            width: 0px;
+            height: 0px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex justify-center bg-[#09090b] text-zinc-100">
+
+    <!-- Основной контейнер приложения -->
+    <div class="w-full max-w-[440px] min-h-screen flex flex-col justify-between bg-gradient-to-b from-[#111115] via-[#0b0b0e] to-[#09090b] border-x border-zinc-800/60 relative pb-24">
+
+        <!-- ВЕРХНЯЯ ПАНЕЛЬ ПРОФИЛЯ -->
+        <header class="px-4 pt-3 pb-2 flex items-center justify-between gap-2 z-20">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-zinc-200 via-zinc-400 to-zinc-700 p-[1.5px] shrink-0 shadow-md">
+                    <div class="w-full h-full rounded-[14px] bg-zinc-900 flex items-center justify-center font-black text-sm text-white" id="userAvatarLetter">
+                        Y
+                    </div>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span id="userNameDisplay" class="text-sm font-extrabold text-white truncate">YUKA Miner</span>
+                        <span id="headerRankBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 shrink-0">#10</span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 flex items-center gap-2">
+                        <span>Лига: <strong id="leagueNameHeader" class="text-zinc-200">Steel</strong></span>
+                        <span>•</span>
+                        <span>+<span id="passiveIncomeHeader">0</span>/сек</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопка звука -->
+            <button id="soundToggleBtn" type="button" aria-label="Звук" class="w-9 h-9 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-white transition shrink-0">
+                <svg id="soundOnIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+                </svg>
+                <svg id="soundOffIcon" class="w-4 h-4 hidden text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+                </svg>
+            </button>
+        </header>
+
+        <!-- КОНТЕНТ ВКЛАДОК -->
+        <main class="flex-1 px-4 flex flex-col justify-between">
+
+            <!-- ВКЛАДКА 1: МАЙНИНГ -->
+            <section id="tab-mine" class="flex-1 flex flex-col justify-between py-1">
+                <!-- Баланс и прогресс лиги -->
+                <div class="text-center space-y-2 pt-1">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/80 border border-zinc-800 text-[11px] font-semibold text-zinc-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-zinc-200 animate-pulse"></span>
+                        <span>Баланс токенов $YUKA</span>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-b from-white via-zinc-300 to-zinc-600 p-[1.5px] shadow">
+                            <div class="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center gap-1">
+                                <span class="w-1 h-2.5 bg-white rounded-full"></span>
+                                <span class="w-1 h-2.5 bg-white rounded-full"></span>
+                            </div>
+                        </div>
+                        <h1 id="balanceDisplay" class="text-4xl sm:text-5xl font-black tracking-tight chrome-text">0</h1>
+                    </div>
+
+                    <!-- Прогресс-бар лиги -->
+                    <div class="max-w-[300px] mx-auto pt-1">
+                        <div class="flex justify-between text-[11px] font-semibold text-zinc-400 mb-1">
+                            <span id="nextLeagueLabel">До лиги Titanium</span>
+                            <span id="leagueProgressPercent">0%</span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden">
+                            <div id="leagueProgressBar" class="h-full bg-gradient-to-r from-zinc-500 via-zinc-200 to-white rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ЦЕНТРАЛЬНАЯ МОНЕТА $YUKA (Без плашки и рамки вокруг) -->
+                <div class="my-auto py-4 flex flex-col items-center justify-center relative">
+                    <!-- Мягкое фоновое свечение -->
+                    <div class="w-60 h-60 rounded-full bg-white/[0.04] blur-2xl absolute pointer-events-none"></div>
+
+                    <div id="coinWrapper" class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center cursor-pointer touch-manipulation">
+                        <div id="coinPulseContainer" class="absolute inset-4 rounded-full pointer-events-none"></div>
+
+                        <div id="coinTiltTarget" class="w-full h-full flex items-center justify-center">
+                            <!-- Оригинальное изображение монеты с прозрачным смешиванием и векторным резервом -->
+                            <img
+                                id="yukaCoinImg"
+                                src="https://i.ibb.co/1Ykmcs0P/Picsart-26-11-13-15-01-06-532-2.jpg"
+                                alt="$YUKA Coin"
+                                draggable="false"
+                                class="w-60 h-60 sm:w-64 sm:h-64 object-contain rounded-full drop-shadow-[0_18px_35px_rgba(0,0,0,0.85)] contrast-110 brightness-105"
+                                onerror="this.style.display='none'; document.getElementById('yukaCoinFallback').classList.remove('hidden');"
+                            />
+
+                            <!-- Детализированная хромированная 3D-монета $YUKA (резерв, если внешний хостинг недоступен) -->
+                            <div id="yukaCoinFallback" class="hidden w-60 h-60 sm:w-64 sm:h-64 relative flex items-center justify-center">
+                                <svg viewBox="0 0 300 300" class="w-full h-full drop-shadow-[0_20px_35px_rgba(0,0,0,0.9)]">
+                                    <defs>
+                                        <linearGradient id="rimMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#ffffff"/>
+                                            <stop offset="28%" stop-color="#a1a1aa"/>
+                                            <stop offset="55%" stop-color="#27272a"/>
+                                            <stop offset="82%" stop-color="#e4e4e7"/>
+                                            <stop offset="100%" stop-color="#52525b"/>
+                                        </linearGradient>
+                                        <radialGradient id="faceMetal" cx="38%" cy="32%" r="70%">
+                                            <stop offset="0%" stop-color="#ffffff"/>
+                                            <stop offset="45%" stop-color="#e4e4e7"/>
+                                            <stop offset="80%" stop-color="#a1a1aa"/>
+                                            <stop offset="100%" stop-color="#71717a"/>
+                                        </radialGradient>
+                                        <linearGradient id="eyeSlot" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#09090b"/>
+                                            <stop offset="75%" stop-color="#27272a"/>
+                                            <stop offset="100%" stop-color="#71717a"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <!-- Ребристый объёмный гурт (3D глубина) -->
+                                    <circle cx="156" cy="158" r="132" fill="#27272a" stroke="#18181b" stroke-width="4"/>
+                                    <circle cx="153" cy="154" r="132" fill="url(#rimMetal)"/>
+                                    <!-- Основной диск монеты -->
+                                    <circle cx="146" cy="146" r="128" fill="url(#rimMetal)" stroke="#ffffff" stroke-width="2.5"/>
+                                    <circle cx="146" cy="146" r="112" fill="#18181b"/>
+                                    <circle cx="146" cy="146" r="107" fill="url(#faceMetal)" stroke="#ffffff" stroke-width="1.5"/>
+                                    <!-- Фирменные два глаза $YUKA -->
+                                    <rect x="104" y="102" width="24" height="72" rx="12" transform="rotate(14 116 138)" fill="url(#eyeSlot)" stroke="#ffffff" stroke-width="1.5"/>
+                                    <rect x="158" y="114" width="24" height="72" rx="12" transform="rotate(14 170 150)" fill="url(#eyeSlot)" stroke="#ffffff" stroke-width="1.5"/>
+                                    <!-- Блики внутри глаз -->
+                                    <rect x="110" y="112" width="5" height="24" rx="2.5" transform="rotate(14 112 124)" fill="#ffffff" opacity="0.65"/>
+                                    <rect x="164" y="124" width="5" height="24" rx="2.5" transform="rotate(14 166 136)" fill="#ffffff" opacity="0.65"/>
+                                    <!-- Гравировка $YUKA внизу -->
+                                    <text x="128" y="264" fill="#3f3f46" font-size="16" font-weight="900" letter-spacing="1.5" transform="rotate(12 128 264)">$YUKA</text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- НИЖНЯЯ ПАНЕЛЬ СТАМИНЫ И БУСТА -->
+                <div class="space-y-2.5 pb-2">
+                    <div class="flex items-center justify-between px-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-xs font-extrabold text-white">
+                                    <span id="energyDisplay">500</span> <span class="text-zinc-500">/ <span id="maxEnergyDisplay">500</span></span>
+                                </div>
+                                <div class="text-[10px] text-zinc-400">
+                                    +<span id="clickPowerDisplay">1</span> за клик • +<span id="regenDisplay">1</span>/сек
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="fullEnergyBtn" type="button" class="chrome-card px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold text-white hover:border-zinc-500 active:scale-95 transition">
+                            <span>⚡ Заряд</span>
+                            <span id="energyChargesBadge" class="px-1.5 py-0.5 rounded-md bg-zinc-800 text-[10px] text-zinc-200">3/3</span>
+                        </button>
+                    </div>
+
+                    <!-- Шкала энергии -->
+                    <div class="w-full h-3 rounded-full bg-zinc-900/95 border border-zinc-800 p-0.5 overflow-hidden">
+                        <div id="energyBar" class="h-full rounded-full bg-gradient-to-r from-zinc-500 via-zinc-200 to-white transition-all duration-150" style="width: 100%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ВКЛАДКА 2: УЛУЧШЕНИЯ -->
+            <section id="tab-upgrades" class="hidden space-y-3 py-2">
+                <div class="flex items-center justify-between px-1">
+                    <div>
+                        <h2 class="text-lg font-extrabold text-white">Улучшения</h2>
+                        <p class="text-xs text-zinc-400">Усиливайте клик, стамину и пассивный фарм</p>
+                    </div>
+                    <div class="chrome-card px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-200">
+                        Баланс: <span id="shopBalanceDisplay" class="text-white">0</span>
+                    </div>
+                </div>
+
+                <div id="upgradesList" class="space-y-2.5"></div>
+            </section>
+
+            <!-- ВКЛАДКА 3: ЛИДЕРЫ -->
+            <section id="tab-leaderboard" class="hidden space-y-3 py-2">
+                <div class="flex items-center justify-between px-1">
+                    <div>
+                        <h2 class="text-lg font-extrabold text-white">Таблица лидеров</h2>
+                        <p class="text-xs text-zinc-400">Топ майнеров $YUKA в Telegram</p>
+                    </div>
+                    <div class="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-[11px] font-bold">
+                        <button type="button" data-lb-filter="all" class="lb-filter-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-white">Все</button>
+                        <button type="button" data-lb-filter="league" class="lb-filter-btn px-2.5 py-1 rounded-lg text-zinc-400">Моя лига</button>
+                    </div>
+                </div>
+
+                <!-- Подиум Топ-3 -->
+                <div id="leaderboardPodium" class="grid grid-cols-3 gap-2 pt-1"></div>
+
+                <!-- Список остальных игроков -->
+                <div id="leaderboardList" class="space-y-2 max-h-[42vh] overflow-y-auto pr-0.5"></div>
+
+                <!-- Закреплённая позиция игрока -->
+                <div id="playerStickyRank" class="mt-2 chrome-card p-3 rounded-2xl border border-zinc-500/40 flex items-center justify-between"></div>
+            </section>
+
+            <!-- ВКЛАДКА 4: МИНИ-ИГРЫ -->
+            <section id="tab-games" class="hidden space-y-3 py-2">
+                <div class="flex items-center justify-between px-1">
+                    <div>
+                        <h2 class="text-lg font-extrabold text-white">Мини-игры</h2>
+                        <p class="text-xs text-zinc-400">Зарабатывайте бонусные монеты $YUKA</p>
+                    </div>
+                    <div class="chrome-card px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-200">
+                        Баланс: <span id="gamesBalanceDisplay" class="text-white">0</span>
+                    </div>
+                </div>
+
+                <!-- Выбор игры (Меню) -->
+                <div id="gamesMenu" class="space-y-3">
+                    <!-- Карточка 1: Поймай $YUKA -->
+                    <div class="chrome-card p-4 rounded-2xl space-y-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="9"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-sm font-extrabold text-white">YUKA Блиц (15 сек)</h3>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">Бесплатно</span>
+                                    </div>
+                                    <p class="text-xs text-zinc-400 mt-0.5">Ловите монеты $YUKA, собирайте комбо и избегайте красных ловушек</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-zinc-800/80">
+                            <span class="text-[11px] text-zinc-400">Награда: <strong class="text-zinc-200">до +<span id="blitzMaxRewardHint">500</span> $YUKA</strong></span>
+                            <button id="startBlitzBtn" type="button" class="chrome-btn px-4 py-2 rounded-xl text-xs font-extrabold">
+                                Играть
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Карточка 2: Хромированный Сейф -->
+                    <div class="chrome-card p-4 rounded-2xl space-y-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <rect x="4" y="4" width="16" height="16" rx="3"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-sm font-extrabold text-white">Хромированный Сейф</h3>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">x1.32 за шаг</span>
+                                    </div>
+                                    <p class="text-xs text-zinc-400 mt-0.5">Открывайте ячейки сейфа, умножайте ставку и заберите $YUKA до ловушки</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800/80">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-zinc-400">Ставка:</span>
+                                <select id="vaultBetSelect" class="bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1 text-xs font-bold text-white focus:outline-none">
+                                    <option value="50">50 $YUKA</option>
+                                    <option value="200">200 $YUKA</option>
+                                    <option value="500">500 $YUKA</option>
+                                    <option value="1000">1 000 $YUKA</option>
+                                </select>
+                            </div>
+                            <button id="startVaultBtn" type="button" class="chrome-btn px-4 py-2 rounded-xl text-xs font-extrabold">
+                                Открыть сейф
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- АКТИВНАЯ ИГРА 1: YUKA БЛИЦ -->
+                <div id="blitzGameArea" class="hidden chrome-card p-3.5 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-extrabold text-white flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                <span id="blitzTimerDisplay">15.0</span>с
+                            </span>
+                            <span class="px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-700 text-xs font-extrabold text-zinc-200">
+                                +<span id="blitzScoreDisplay" class="text-white">0</span> $YUKA
+                            </span>
+                            <span id="blitzComboBadge" class="px-2 py-1 rounded-xl bg-zinc-800 border border-zinc-600 text-[11px] font-black text-zinc-200 transition-transform">
+                                Комбо x1
+                            </span>
+                        </div>
+                        <button id="quitBlitzBtn" type="button" class="text-xs font-bold text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-900/80 border border-zinc-800">
+                            Выйти
+                        </button>
+                    </div>
+
+                    <div class="w-full h-1.5 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800">
+                        <div id="blitzTimeBar" class="h-full bg-gradient-to-r from-zinc-400 via-white to-zinc-300 transition-all duration-100" style="width: 100%"></div>
+                    </div>
+
+                    <div id="blitzField" class="relative w-full h-80 rounded-2xl bg-gradient-to-b from-zinc-950 via-[#0d0d11] to-zinc-950 border border-zinc-800 overflow-hidden select-none shadow-inner" style="background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 20px 20px;">
+                        <div id="blitzHintOverlay" class="absolute inset-0 flex flex-col items-center justify-center text-center px-4 pointer-events-none">
+                            <span class="text-xs font-bold text-zinc-500">Тапайте по монетам $YUKA</span>
+                            <span class="text-[10px] text-zinc-600 mt-0.5">Серия попаданий увеличивает комбо-множитель</span>
+                        </div>
+
+                        <div id="blitzResultOverlay" class="hidden absolute inset-0 bg-zinc-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-5 text-center z-20">
+                            <div class="text-[11px] uppercase tracking-widest text-zinc-400 font-bold">Раунд завершён</div>
+                            <div id="blitzFinalReward" class="text-3xl font-black chrome-text mt-1">+0 $YUKA</div>
+                            <div id="blitzStatsSummary" class="text-xs text-zinc-400 mt-1.5">Поймано монет: 0 • Макс. комбо: x1</div>
+                            <div class="flex items-center gap-2.5 mt-4 w-full max-w-[240px]">
+                                <button id="blitzReplayBtn" type="button" class="chrome-btn flex-1 py-2.5 rounded-xl text-xs font-extrabold">
+                                    Ещё раз
+                                </button>
+                                <button id="blitzBackMenuBtn" type="button" class="px-3.5 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-200">
+                                    Меню
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-[10px] text-zinc-400 px-1">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-zinc-300 inline-block"></span> Обычная</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_#fff] inline-block"></span> Платина x3</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full border border-red-500 bg-zinc-900 inline-block"></span> Ловушка</span>
+                    </div>
+                </div>
+
+                <!-- АКТИВНАЯ ИГРА 2: ХРОМИРОВАННЫЙ СЕЙФ -->
+                <div id="vaultGameArea" class="hidden chrome-card p-4 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between bg-zinc-950/80 border border-zinc-800/90 p-3 rounded-2xl">
+                        <div>
+                            <div class="text-[11px] text-zinc-400 font-medium">Текущий банк</div>
+                            <div class="text-xl font-black chrome-text"><span id="vaultCurrentWinDisplay">0</span> $YUKA</div>
+                        </div>
+                        <div class="text-right">
+                            <span id="vaultMultiplierBadge" class="px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-600 text-xs font-extrabold text-white">x1.00</span>
+                            <div id="vaultNextStepHint" class="text-[10px] text-zinc-400 mt-1">След. шаг: x1.32</div>
+                        </div>
+                    </div>
+
+                    <div id="vaultStepsBar" class="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[10px] font-bold"></div>
+
+                    <div id="vaultGrid" class="grid grid-cols-3 gap-2.5 py-1"></div>
+
+                    <div id="vaultStatusBanner" class="text-center text-[11px] font-semibold text-zinc-400 bg-zinc-900/70 border border-zinc-800/80 rounded-xl py-1.5 px-2">
+                        Выберите любую ячейку сейфа • Внутри 2 ловушки
+                    </div>
+
+                    <div class="flex gap-2 pt-0.5">
+                        <button id="vaultCashoutBtn" type="button" disabled class="chrome-btn flex-1 py-2.5 rounded-xl text-xs font-extrabold">
+                            Забрать выигрыш
+                        </button>
+                        <button id="vaultRestartBtn" type="button" class="hidden chrome-btn flex-1 py-2.5 rounded-xl text-xs font-extrabold">
+                            Сыграть снова
+                        </button>
+                        <button id="quitVaultBtn" type="button" class="px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300">
+                            Назад
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- НИЖНЯЯ НАВИГАЦИЯ -->
+        <nav class="fixed bottom-0 w-full max-w-[440px] bg-[#0d0d10]/95 backdrop-blur-md border-t border-zinc-800/80 px-3 py-2.5 z-30">
+            <div class="grid grid-cols-4 gap-1.5">
+                <button type="button" data-tab="mine" class="nav-btn active flex flex-col items-center justify-center py-2 rounded-2xl bg-zinc-800/90 text-white border border-zinc-700/70 transition">
+                    <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path stroke-linecap="round" d="M9.5 9.5v2M14.5 9.5v2"/>
+                    </svg>
+                    <span class="text-[11px] font-bold">Майнинг</span>
+                </button>
+
+                <button type="button" data-tab="upgrades" class="nav-btn flex flex-col items-center justify-center py-2 rounded-2xl text-zinc-400 hover:text-zinc-200 border border-transparent transition">
+                    <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <span class="text-[11px] font-bold">Улучшения</span>
+                </button>
+
+                <button type="button" data-tab="games" class="nav-btn flex flex-col items-center justify-center py-2 rounded-2xl text-zinc-400 hover:text-zinc-200 border border-transparent transition">
+                    <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <rect x="3" y="5" width="18" height="14" rx="4"/>
+                    </svg>
+                    <span class="text-[11px] font-bold">Игры</span>
+                </button>
+
+                <button type="button" data-tab="leaderboard" class="nav-btn flex flex-col items-center justify-center py-2 rounded-2xl text-zinc-400 hover:text-zinc-200 border border-transparent transition">
+                    <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4m-5-9h10l1-7H6l1 7z"/>
+                    </svg>
+                    <span class="text-[11px] font-bold">Лидеры</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ -->
+        <div id="toastBanner" class="fixed top-14 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-zinc-900/95 border border-zinc-700 text-xs font-bold text-white shadow-xl opacity-0 pointer-events-none transition-opacity duration-200 z-50"></div>
+    </div>
+
+    <script>
+        (function () {
+            const STORAGE_KEY = 'yuka_clicker_state_v2';
+            const tg = window.Telegram?.WebApp || null;
+
+            if (tg) {
+                try {
+                    tg.ready();
+                    tg.expand();
+                    if (tg.setHeaderColor) tg.setHeaderColor('#09090b');
+                    if (tg.setBackgroundColor) tg.setBackgroundColor('#09090b');
+                } catch (_) {}
+            }
+
+            const LEAGUES = [
+                { name: 'Steel', min: 0 },
+                { name: 'Titanium', min: 1000 },
+                { name: 'Silver', min: 10000 },
+                { name: 'Platinum', min: 50000 },
+                { name: 'Chrome', min: 250000 },
+                { name: 'Obsidian', min: 1000000 }
+            ];
+
+            const UPGRADE_CONFIGS = [
+                {
+                    id: 'multitap',
+                    title: 'Сила клика',
+                    desc: '+1 $YUKA за каждое нажатие по монете',
+                    baseCost: 100,
+                    multiplier: 1.65,
+                    icon: 'M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5'
+                },
+                {
+                    id: 'energyLimit',
+                    title: 'Запас стамины',
+                    desc: '+500 к максимальному лимиту энергии',
+                    baseCost: 150,
+                    multiplier: 1.6,
+                    icon: 'M13 10V3L4 14h7v7l9-11h-7z'
+                },
+                {
+                    id: 'regenSpeed',
+                    title: 'Регенерация энергии',
+                    desc: '+1 к скорости восстановления стамины в сек',
+                    baseCost: 200,
+                    multiplier: 1.75,
+                    icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                },
+                {
+                    id: 'autoMiner',
+                    title: 'YUKA Авто-майнер',
+                    desc: '+2 $YUKA/сек в фоновом режиме',
+                    baseCost: 350,
+                    multiplier: 1.7,
+                    icon: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z'
+                }
+            ];
+
+            const RIVALS = [
+                { name: 'Alex_TON', score: 1450000 },
+                { name: 'KiraChrome', score: 620000 },
+                { name: 'DurovNode', score: 290000 },
+                { name: 'SilverWhale', score: 115000 },
+                { name: 'YukaHunter', score: 48000 },
+                { name: 'CryptoNomad', score: 19500 },
+                { name: 'Misha_Web3', score: 8200 },
+                { name: 'NikaTap', score: 2400 },
+                { name: 'SatoshiJr', score: 650 }
+            ];
+
+            const defaultState = {
+                balance: 0,
+                totalEarned: 0,
+                energy: 500,
+                charges: 3,
+                soundEnabled: true,
+                upgrades: {
+                    multitap: 1,
+                    energyLimit: 1,
+                    regenSpeed: 1,
+                    autoMiner: 0
+                },
+                lastSavedAt: Date.now()
+            };
+
+            let state = loadState();
+            let lbFilter = 'all';
+
+            function loadState() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return structuredClone(defaultState);
+                    const parsed = JSON.parse(raw);
+                    const merged = {
+                        ...defaultState,
+                        ...parsed,
+                        upgrades: {
+                            ...defaultState.upgrades,
+                            ...(parsed.upgrades || {})
+                        }
+                    };
+                    // Начисляем офлайн-доход и восстановление энергии
+                    const elapsedSec = Math.max(0, Math.floor((Date.now() - (merged.lastSavedAt || Date.now())) / 1000));
+                    if (elapsedSec > 0) {
+                        const maxE = 500 + (merged.upgrades.energyLimit - 1) * 500;
+                        const regen = merged.upgrades.regenSpeed;
+                        merged.energy = Math.min(maxE, merged.energy + elapsedSec * regen);
+
+                        const passive = merged.upgrades.autoMiner * 2;
+                        if (passive > 0) {
+                            const offlineEarned = Math.min(elapsedSec, 3600 * 4) * passive;
+                            merged.balance += offlineEarned;
+                            merged.totalEarned += offlineEarned;
+                        }
+                    }
+                    return merged;
+                } catch (_) {
+                    return structuredClone(defaultState);
+                }
+            }
+
+            function saveState() {
+                try {
+                    state.lastSavedAt = Date.now();
+                    const serialized = JSON.stringify(state);
+                    localStorage.setItem(STORAGE_KEY, serialized);
+                    if (tg?.CloudStorage && typeof tg.isVersionAtLeast === 'function' && tg.isVersionAtLeast('6.9')) {
+                        tg.CloudStorage.setItem(STORAGE_KEY, serialized, () => {});
+                    }
+                } catch (_) {}
+            }
+
+            // Профиль Telegram
+            const tgUser = tg?.initDataUnsafe?.user;
+            if (tgUser) {
+                const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'YUKA Miner';
+                document.getElementById('userNameDisplay').textContent = fullName;
+                document.getElementById('userAvatarLetter').textContent = fullName.charAt(0).toUpperCase();
+                if (tgUser.photo_url) {
+                    const avatarContainer = document.getElementById('userAvatarLetter');
+                    avatarContainer.innerHTML = `<img src="${tgUser.photo_url}" alt="" class="w-full h-full object-cover rounded-[14px]">`;
+                }
+            }
+            if (tg?.disableVerticalSwipes) {
+                try { tg.disableVerticalSwipes(); } catch (_) {}
+            }
+
+            // Звуковой движок (Web Audio API)
+            let audioCtx = null;
+            function ensureAudio() {
+                if (!audioCtx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) audioCtx = new AudioContextClass();
+                }
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(() => {});
+                }
+            }
+
+            function playTapSound() {
+                if (!state.soundEnabled) return;
+                ensureAudio();
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(520 + Math.random() * 110, now);
+                osc.frequency.exponentialRampToValueAtTime(190, now + 0.065);
+                gain.gain.setValueAtTime(0.11, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.075);
+            }
+
+            function playUpgradeSound() {
+                if (!state.soundEnabled) return;
+                ensureAudio();
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                [523.25, 659.25, 783.99].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.055);
+                    gain.gain.setValueAtTime(0.09, now + idx * 0.055);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.055 + 0.16);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.055);
+                    osc.stop(now + idx * 0.055 + 0.17);
+                });
+            }
+
+            function formatNumber(num) {
+                return Math.floor(num).toLocaleString('ru-RU');
+            }
+
+            function formatCompact(num) {
+                if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+                if (num >= 10000) return (num / 1000).toFixed(1) + 'K';
+                return formatNumber(num);
+            }
+
+            function getClickPower() {
+                return state.upgrades.multitap;
+            }
+
+            function getMaxEnergy() {
+                return 500 + (state.upgrades.energyLimit - 1) * 500;
+            }
+
+            function getRegenSpeed() {
+                return state.upgrades.regenSpeed;
+            }
+
+            function getPassiveIncome() {
+                return state.upgrades.autoMiner * 2;
+            }
+
+            function getUpgradeCost(cfg) {
+                const lvl = state.upgrades[cfg.id] || 0;
+                return Math.floor(cfg.baseCost * Math.pow(cfg.multiplier, lvl));
+            }
+
+            function getLeagueInfo(total) {
+                let currentIdx = 0;
+                for (let i = 0; i < LEAGUES.length; i++) {
+                    if (total >= LEAGUES[i].min) currentIdx = i;
+                }
+                const current = LEAGUES[currentIdx];
+                const next = LEAGUES[currentIdx + 1] || null;
+                let progress = 100;
+                if (next) {
+                    progress = Math.min(100, Math.max(0, ((total - current.min) / (next.min - current.min)) * 100));
+                }
+                return { current, next, progress };
+            }
+
+            let toastTimeout = null;
+            function showToast(msg) {
+                const el = document.getElementById('toastBanner');
+                el.textContent = msg;
+                el.classList.remove('opacity-0');
+                clearTimeout(toastTimeout);
+                toastTimeout = setTimeout(() => {
+                    el.classList.add('opacity-0');
+                }, 2000);
+            }
+
+            function spawnFloatingReward(x, y, amount) {
+                const el = document.createElement('div');
+                el.className = 'floating-plus';
+                if (amount < 0) {
+                    el.style.color = '#f87171';
+                    el.textContent = `${formatNumber(amount)}`;
+                } else {
+                    el.textContent = `+${formatNumber(amount)}`;
+                }
+                el.style.left = `${x}px`;
+                el.style.top = `${y - 14}px`;
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 800);
+            }
+
+            function spawnSparks(x, y) {
+                for (let i = 0; i < 6; i++) {
+                    const spark = document.createElement('div');
+                    spark.className = 'tap-spark';
+                    const angle = (Math.PI * 2 * i) / 6 + (Math.random() * 0.5 - 0.25);
+                    const dist = 34 + Math.random() * 34;
+                    spark.style.left = `${x}px`;
+                    spark.style.top = `${y}px`;
+                    spark.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+                    spark.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+                    document.body.appendChild(spark);
+                    setTimeout(() => spark.remove(), 550);
+                }
+            }
+
+            // Обработка нажатия на монету
+            const coinWrapper = document.getElementById('coinWrapper');
+            const coinTiltTarget = document.getElementById('coinTiltTarget');
+            const coinPulseContainer = document.getElementById('coinPulseContainer');
+            let tiltResetTimer = null;
+
+            function handleCoinTap(clientX, clientY) {
+                const clickPower = getClickPower();
+                if (state.energy < clickPower) {
+                    showToast('Недостаточно стамины! Подождите или используйте ⚡ Заряд');
+                    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                    coinTiltTarget.style.transform = 'translateX(-5px)';
+                    setTimeout(() => { coinTiltTarget.style.transform = 'translateX(5px)'; }, 55);
+                    setTimeout(() => { coinTiltTarget.style.transform = 'none'; }, 110);
+                    return;
+                }
+
+                state.energy -= clickPower;
+                state.balance += clickPower;
+                state.totalEarned += clickPower;
+
+                // 3D-наклон в точку касания + пружина
+                const rect = coinWrapper.getBoundingClientRect();
+                const relX = (clientX - rect.left) / rect.width - 0.5;
+                const relY = (clientY - rect.top) / rect.height - 0.5;
+                const rotateY = relX * 26;
+                const rotateX = -relY * 26;
+
+                coinTiltTarget.style.transform = `rotateX(${rotateX.toFixed(1)}deg) rotateY(${rotateY.toFixed(1)}deg) scale(0.92)`;
+                clearTimeout(tiltResetTimer);
+                tiltResetTimer = setTimeout(() => {
+                    coinTiltTarget.style.transform = 'rotateX(0deg) rotateY(0deg) scale(1)';
+                }, 130);
+
+                // Кольцевая волна
+                const ring = document.createElement('div');
+                ring.className = 'pulse-ring';
+                coinPulseContainer.appendChild(ring);
+                setTimeout(() => ring.remove(), 520);
+
+                spawnFloatingReward(clientX, clientY, clickPower);
+                spawnSparks(clientX, clientY);
+                playTapSound();
+                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+                updateUI();
+            }
+
+            coinWrapper.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                handleCoinTap(e.clientX, e.clientY);
+            });
+
+            // Кнопка восстановления энергии
+            document.getElementById('fullEnergyBtn').addEventListener('click', () => {
+                if (state.charges <= 0) {
+                    showToast('Бесплатные заряды на сегодня закончились');
+                    return;
+                }
+                const maxE = getMaxEnergy();
+                if (state.energy >= maxE) {
+                    showToast('Стамина уже заполнена на 100%');
+                    return;
+                }
+                state.charges -= 1;
+                state.energy = maxE;
+                playUpgradeSound();
+                if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                showToast('Стамина полностью восстановлена!');
+                saveState();
+                updateUI();
+            });
+
+            // Переключение звука
+            document.getElementById('soundToggleBtn').addEventListener('click', () => {
+                state.soundEnabled = !state.soundEnabled;
+                updateSoundIcon();
+                saveState();
+            });
+
+            function updateSoundIcon() {
+                document.getElementById('soundOnIcon').classList.toggle('hidden', !state.soundEnabled);
+                document.getElementById('soundOffIcon').classList.toggle('hidden', state.soundEnabled);
+            }
+
+            // Рендер улучшений
+            function renderUpgrades() {
+                const list = document.getElementById('upgradesList');
+                list.innerHTML = '';
+
+                UPGRADE_CONFIGS.forEach(cfg => {
+                    const lvl = state.upgrades[cfg.id] || 0;
+                    const cost = getUpgradeCost(cfg);
+                    const canAfford = state.balance >= cost;
+
+                    const card = document.createElement('div');
+                    card.className = 'chrome-card p-3.5 rounded-2xl flex items-center justify-between gap-3';
+                    card.innerHTML = `
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-11 h-11 rounded-2xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-white shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="${cfg.icon}"/>
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-sm font-extrabold text-white truncate">${cfg.title}</h3>
+                                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 shrink-0">Ур. ${lvl}</span>
+                                </div>
+                                <p class="text-[11px] text-zinc-400 mt-0.5 leading-snug">${cfg.desc}</p>
+                            </div>
+                        </div>
+                        <button type="button" ${canAfford ? '' : 'disabled'} class="chrome-btn px-3.5 py-2 rounded-xl text-xs font-extrabold shrink-0">
+                            ${formatCompact(cost)}
+                        </button>
+                    `;
+
+                    card.querySelector('button').addEventListener('click', () => {
+                        if (state.balance < cost) return;
+                        state.balance -= cost;
+                        state.upgrades[cfg.id] = lvl + 1;
+                        if (cfg.id === 'energyLimit') {
+                            state.energy = Math.min(getMaxEnergy(), state.energy + 500);
+                        }
+                        playUpgradeSound();
+                        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                        saveState();
+                        updateUI();
+                        renderUpgrades();
+                    });
+
+                    list.appendChild(card);
+                });
+            }
+
+            // Рендер таблицы лидеров
+            function getAllRankedPlayers() {
+                const playerName = document.getElementById('userNameDisplay').textContent || 'Вы';
+                const all = [
+                    ...RIVALS.map(r => ({ ...r, isPlayer: false })),
+                    { name: playerName, score: Math.floor(state.totalEarned), isPlayer: true }
+                ];
+                all.sort((a, b) => b.score - a.score);
+                return all.map((item, index) => ({
+                    ...item,
+                    rank: index + 1,
+                    league: getLeagueInfo(item.score).current.name
+                }));
+            }
+
+            function renderLeaderboard() {
+                const ranked = getAllRankedPlayers();
+                const playerEntry = ranked.find(p => p.isPlayer);
+                const myLeague = playerEntry.league;
+
+                const filtered = lbFilter === 'league'
+                    ? ranked.filter(p => p.league === myLeague)
+                    : ranked;
+
+                // Подиум Топ-3
+                const podiumEl = document.getElementById('leaderboardPodium');
+                const top3 = filtered.slice(0, 3);
+                podiumEl.innerHTML = top3.map((p, idx) => {
+                    const medal = idx === 0 ? '👑 #1' : idx === 1 ? '🥈 #2' : '🥉 #3';
+                    const highlight = p.isPlayer ? 'border-white/60 bg-zinc-800/80' : '';
+                    return `
+                        <div class="chrome-card p-2.5 rounded-2xl text-center ${highlight}">
+                            <div class="text-[11px] font-black text-zinc-200 mb-1">${medal}</div>
+                            <div class="w-9 h-9 mx-auto rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center font-black text-xs text-white mb-1">
+                                ${p.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="text-xs font-extrabold text-white truncate">${p.name}</div>
+                            <div class="text-[11px] font-bold text-zinc-300 mt-0.5">${formatCompact(p.score)}</div>
+                            <div class="text-[9px] text-zinc-500">${p.league}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Остальной список
+                const listEl = document.getElementById('leaderboardList');
+                const rest = filtered.slice(3);
+                listEl.innerHTML = rest.map(p => `
+                    <div class="chrome-card px-3.5 py-2.5 rounded-2xl flex items-center justify-between ${p.isPlayer ? 'border-white/60 bg-zinc-800/70' : ''}">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-6 text-xs font-black text-zinc-400">#${p.rank}</span>
+                            <div class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                ${p.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-xs font-extrabold text-white truncate">${p.name} ${p.isPlayer ? '(Вы)' : ''}</div>
+                                <div class="text-[10px] text-zinc-400">Лига ${p.league}</div>
+                            </div>
+                        </div>
+                        <div class="text-xs font-black text-zinc-200">${formatCompact(p.score)} $YUKA</div>
+                    </div>
+                `).join('');
+
+                // Закреплённая строка игрока
+                const stickyEl = document.getElementById('playerStickyRank');
+                const abovePlayer = ranked.find(p => p.rank === playerEntry.rank - 1);
+                const diffText = abovePlayer
+                    ? `До #${abovePlayer.rank}: +${formatCompact(abovePlayer.score - playerEntry.score + 1)}`
+                    : 'Вы абсолютный лидер!';
+
+                stickyEl.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <span class="px-2 py-1 rounded-lg bg-white text-zinc-950 text-xs font-black">#${playerEntry.rank}</span>
+                        <div>
+                            <div class="text-xs font-extrabold text-white">${playerEntry.name} (Вы)</div>
+                            <div class="text-[10px] text-zinc-400">${diffText}</div>
+                        </div>
+                    </div>
+                    <div class="text-xs font-black chrome-text">${formatCompact(playerEntry.score)} $YUKA</div>
+                `;
+            }
+
+            document.querySelectorAll('.lb-filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    lbFilter = btn.dataset.lbFilter;
+                    document.querySelectorAll('.lb-filter-btn').forEach(b => {
+                        if (b.dataset.lbFilter === lbFilter) {
+                            b.className = 'lb-filter-btn px-2.5 py-1 rounded-lg bg-zinc-800 text-white';
+                        } else {
+                            b.className = 'lb-filter-btn px-2.5 py-1 rounded-lg text-zinc-400';
+                        }
+                    });
+                    renderLeaderboard();
+                });
+            });
+
+            // --- МИНИ-ИГРА 1: YUKA БЛИЦ (15 СЕКУНД) ---
+            let blitzTimerInterval = null;
+            let blitzSpawnInterval = null;
+            let blitzTimeLeft = 15.0;
+            let blitzScore = 0;
+            let blitzCombo = 1;
+            let blitzMaxCombo = 1;
+            let blitzCaughtCount = 0;
+            let blitzRunning = false;
+
+            const blitzField = document.getElementById('blitzField');
+            const blitzResultOverlay = document.getElementById('blitzResultOverlay');
+            const gamesMenu = document.getElementById('gamesMenu');
+            const blitzGameArea = document.getElementById('blitzGameArea');
+            const vaultGameArea = document.getElementById('vaultGameArea');
+
+            function updateGamesUI() {
+                const maxHint = Math.max(250, getClickPower() * 45);
+                const hintEl = document.getElementById('blitzMaxRewardHint');
+                if (hintEl) hintEl.textContent = formatNumber(maxHint);
+            }
+
+            function updateBlitzComboUI() {
+                const badge = document.getElementById('blitzComboBadge');
+                if (!badge) return;
+                badge.textContent = `Комбо x${blitzCombo}`;
+                if (blitzCombo >= 3) {
+                    badge.className = 'px-2 py-1 rounded-xl bg-white text-zinc-950 border border-white text-[11px] font-black transition-transform scale-105';
+                } else if (blitzCombo === 2) {
+                    badge.className = 'px-2 py-1 rounded-xl bg-zinc-700 text-white border border-zinc-500 text-[11px] font-black transition-transform';
+                } else {
+                    badge.className = 'px-2 py-1 rounded-xl bg-zinc-800 border border-zinc-700 text-[11px] font-black text-zinc-300 transition-transform';
+                }
+            }
+
+            function startBlitzGame() {
+                if (blitzRunning) return;
+                blitzRunning = true;
+                blitzTimeLeft = 15.0;
+                blitzScore = 0;
+                blitzCombo = 1;
+                blitzMaxCombo = 1;
+                blitzCaughtCount = 0;
+
+                gamesMenu.classList.add('hidden');
+                vaultGameArea.classList.add('hidden');
+                blitzGameArea.classList.remove('hidden');
+                blitzResultOverlay.classList.add('hidden');
+
+                document.getElementById('blitzTimerDisplay').textContent = blitzTimeLeft.toFixed(1);
+                document.getElementById('blitzScoreDisplay').textContent = '0';
+                document.getElementById('blitzTimeBar').style.width = '100%';
+                updateBlitzComboUI();
+
+                Array.from(blitzField.querySelectorAll('button')).forEach(btn => btn.remove());
+
+                blitzSpawnInterval = setInterval(spawnBlitzTarget, 400);
+                spawnBlitzTarget();
+
+                blitzTimerInterval = setInterval(() => {
+                    blitzTimeLeft = Math.max(0, blitzTimeLeft - 0.1);
+                    document.getElementById('blitzTimerDisplay').textContent = blitzTimeLeft.toFixed(1);
+                    document.getElementById('blitzTimeBar').style.width = `${(blitzTimeLeft / 15.0) * 100}%`;
+                    if (blitzTimeLeft <= 0) {
+                        stopBlitzGame(true);
+                    }
+                }, 100);
+            }
+
+            function spawnBlitzTarget() {
+                if (!blitzRunning) return;
+                const item = document.createElement('button');
+                item.type = 'button';
+
+                const roll = Math.random();
+                const isTrap = roll < 0.22;
+                const isMega = !isTrap && roll > 0.82;
+                const baseVal = Math.max(5, getClickPower() * 3);
+
+                const size = isMega ? 48 : 54;
+                const maxX = Math.max(12, blitzField.clientWidth - size - 12);
+                const maxY = Math.max(12, blitzField.clientHeight - size - 12);
+                const x = Math.floor(12 + Math.random() * maxX);
+                const y = Math.floor(12 + Math.random() * maxY);
+
+                item.style.left = `${x}px`;
+                item.style.top = `${y}px`;
+                item.style.width = `${size}px`;
+                item.style.height = `${size}px`;
+
+                if (isTrap) {
+                    item.className = 'absolute rounded-full bg-zinc-900 border-2 border-red-500/80 text-red-400 font-black text-sm flex items-center justify-center shadow-[0_0_12px_rgba(239,68,68,0.25)] transition-transform active:scale-90';
+                    item.innerHTML = '<span>✕</span>';
+                } else if (isMega) {
+                    item.className = 'absolute rounded-full bg-gradient-to-br from-white via-zinc-200 to-zinc-400 border-2 border-white text-zinc-950 font-black text-[11px] flex flex-col items-center justify-center leading-none shadow-[0_0_18px_rgba(255,255,255,0.65)] transition-transform active:scale-90';
+                    item.innerHTML = `<span>$YUKA</span><span class="text-[9px] mt-0.5">x3</span>`;
+                } else {
+                    item.className = 'absolute rounded-full bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-500 border border-white/80 text-zinc-950 font-black text-[10px] flex flex-col items-center justify-center leading-none shadow-lg transition-transform active:scale-90';
+                    item.innerHTML = `<span class="flex gap-1 mb-0.5"><i class="w-1 h-2 bg-zinc-950 rounded-full"></i><i class="w-1 h-2 bg-zinc-950 rounded-full"></i></span><span>$YK</span>`;
+                }
+
+                item.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    if (!blitzRunning) return;
+
+                    if (isTrap) {
+                        const penalty = baseVal * 2;
+                        blitzScore = Math.max(0, blitzScore - penalty);
+                        blitzCombo = 1;
+                        updateBlitzComboUI();
+                        document.getElementById('blitzScoreDisplay').textContent = formatNumber(blitzScore);
+                        spawnFloatingReward(e.clientX, e.clientY, -penalty);
+                        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                    } else {
+                        blitzCaughtCount += 1;
+                        if (blitzCaughtCount % 3 === 0 && blitzCombo < 4) {
+                            blitzCombo += 1;
+                            if (blitzCombo > blitzMaxCombo) blitzMaxCombo = blitzCombo;
+                            updateBlitzComboUI();
+                        }
+                        const earned = (isMega ? baseVal * 3 : baseVal) * blitzCombo;
+                        blitzScore += earned;
+                        document.getElementById('blitzScoreDisplay').textContent = formatNumber(blitzScore);
+                        spawnFloatingReward(e.clientX, e.clientY, earned);
+                        playTapSound();
+                        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                    }
+                    item.remove();
+                });
+
+                blitzField.appendChild(item);
+                setTimeout(() => {
+                    if (item.parentNode) item.remove();
+                }, 1150);
+            }
+
+            function stopBlitzGame(showSummary) {
+                clearInterval(blitzTimerInterval);
+                clearInterval(blitzSpawnInterval);
+                const wasRunning = blitzRunning;
+                blitzRunning = false;
+
+                Array.from(blitzField.querySelectorAll('button')).forEach(btn => btn.remove());
+
+                if (wasRunning && showSummary) {
+                    if (blitzScore > 0) {
+                        state.balance += blitzScore;
+                        state.totalEarned += blitzScore;
+                        playUpgradeSound();
+                        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                        saveState();
+                        updateUI();
+                    }
+                    document.getElementById('blitzFinalReward').textContent = `+${formatNumber(blitzScore)} $YUKA`;
+                    document.getElementById('blitzStatsSummary').textContent = `Поймано монет: ${blitzCaughtCount} • Макс. комбо: x${blitzMaxCombo}`;
+                    blitzResultOverlay.classList.remove('hidden');
+                    return;
+                }
+
+                blitzResultOverlay.classList.add('hidden');
+                blitzGameArea.classList.add('hidden');
+                gamesMenu.classList.remove('hidden');
+            }
+
+            document.getElementById('startBlitzBtn').addEventListener('click', startBlitzGame);
+            document.getElementById('blitzReplayBtn').addEventListener('click', startBlitzGame);
+            document.getElementById('blitzBackMenuBtn').addEventListener('click', () => stopBlitzGame(false));
+            document.getElementById('quitBlitzBtn').addEventListener('click', () => stopBlitzGame(false));
+
+            // --- МИНИ-ИГРА 2: ХРОМИРОВАННЫЙ СЕЙФ (3x3) ---
+            let vaultState = {
+                active: false,
+                bet: 0,
+                multiplier: 1,
+                openedCount: 0,
+                traps: new Set()
+            };
+
+            function renderVaultStepsBar() {
+                const bar = document.getElementById('vaultStepsBar');
+                if (!bar) return;
+                const steps = [1.32, 1.74, 2.30, 3.04, 4.01, 5.29, 6.98];
+                bar.innerHTML = steps.map((mult, idx) => {
+                    const stepNum = idx + 1;
+                    const isPassed = vaultState.openedCount >= stepNum;
+                    const isCurrent = vaultState.openedCount + 1 === stepNum && vaultState.active;
+                    const cls = isPassed
+                        ? 'bg-zinc-200 text-zinc-950 border-white'
+                        : isCurrent
+                            ? 'bg-zinc-800 text-white border-zinc-500'
+                            : 'bg-zinc-900/80 text-zinc-500 border-zinc-800';
+                    return `<span class="px-2 py-1 rounded-lg border shrink-0 ${cls}">x${mult.toFixed(2)}</span>`;
+                }).join('');
+            }
+
+            function startVaultGame() {
+                const bet = parseInt(document.getElementById('vaultBetSelect').value, 10) || 50;
+                if (state.balance < bet) {
+                    showToast('Недостаточно $YUKA для ставки');
+                    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                    return;
+                }
+
+                state.balance -= bet;
+                saveState();
+                updateUI();
+
+                const traps = new Set();
+                while (traps.size < 2) {
+                    traps.add(Math.floor(Math.random() * 9));
+                }
+
+                vaultState = {
+                    active: true,
+                    bet,
+                    multiplier: 1.0,
+                    openedCount: 0,
+                    traps
+                };
+
+                gamesMenu.classList.add('hidden');
+                blitzGameArea.classList.add('hidden');
+                vaultGameArea.classList.remove('hidden');
+
+                document.getElementById('vaultRestartBtn').classList.add('hidden');
+                document.getElementById('vaultCashoutBtn').classList.remove('hidden');
+                document.getElementById('vaultStatusBanner').textContent = 'Выберите любую ячейку сейфа • Внутри 2 ловушки';
+                document.getElementById('vaultStatusBanner').className = 'text-center text-[11px] font-semibold text-zinc-400 bg-zinc-900/70 border border-zinc-800/80 rounded-xl py-1.5 px-2';
+
+                renderVaultStepsBar();
+                renderVaultGrid();
+            }
+
+            function renderVaultGrid() {
+                const grid = document.getElementById('vaultGrid');
+                grid.innerHTML = '';
+
+                const currentWin = Math.floor(vaultState.bet * vaultState.multiplier);
+                const nextMult = +(vaultState.multiplier * 1.32).toFixed(2);
+                document.getElementById('vaultCurrentWinDisplay').textContent = formatNumber(currentWin);
+                document.getElementById('vaultMultiplierBadge').textContent = `x${vaultState.multiplier.toFixed(2)}`;
+                document.getElementById('vaultNextStepHint').textContent = `След. шаг: x${nextMult.toFixed(2)}`;
+
+                const cashoutBtn = document.getElementById('vaultCashoutBtn');
+                cashoutBtn.disabled = !vaultState.active || vaultState.openedCount === 0;
+                cashoutBtn.textContent = vaultState.openedCount > 0
+                    ? `Забрать ${formatNumber(currentWin)} $YUKA`
+                    : 'Откройте ячейку';
+
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.className = 'h-20 rounded-2xl bg-gradient-to-b from-zinc-800/90 to-zinc-950 hover:from-zinc-800 hover:to-zinc-900 border border-zinc-700/80 flex flex-col items-center justify-center text-sm font-black text-zinc-400 transition-all duration-150 active:scale-95 shadow-inner';
+                    cell.innerHTML = `<span class="w-4 h-4 rounded-full border-2 border-zinc-600 flex items-center justify-center"><i class="w-1.5 h-1.5 rounded-full bg-zinc-500"></i></span><span class="text-[9px] text-zinc-500 mt-1 font-bold">#${i + 1}</span>`;
+
+                    cell.addEventListener('click', () => {
+                        if (!vaultState.active || cell.dataset.opened === '1') return;
+                        cell.dataset.opened = '1';
+
+                        if (vaultState.traps.has(i)) {
+                            vaultState.active = false;
+                            cell.className = 'h-20 rounded-2xl bg-red-950/70 border-2 border-red-500/80 flex flex-col items-center justify-center text-base font-black text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.25)]';
+                            cell.innerHTML = `<span>✕</span><span class="text-[9px] uppercase tracking-wider mt-0.5">Ловушка</span>`;
+                            if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+
+                            const statusBanner = document.getElementById('vaultStatusBanner');
+                            statusBanner.textContent = `Взрыв ловушки! Ставка ${formatNumber(vaultState.bet)} $YUKA сгорела`;
+                            statusBanner.className = 'text-center text-[11px] font-bold text-red-300 bg-red-950/40 border border-red-500/40 rounded-xl py-1.5 px-2';
+
+                            Array.from(grid.children).forEach((el, idx) => {
+                                if (vaultState.traps.has(idx) && idx !== i) {
+                                    el.className = 'h-20 rounded-2xl bg-red-950/30 border border-red-500/40 flex flex-col items-center justify-center text-sm font-black text-red-400/80';
+                                    el.innerHTML = `<span>✕</span><span class="text-[9px] mt-0.5">Мина</span>`;
+                                } else if (el.dataset.opened !== '1') {
+                                    el.classList.add('opacity-50');
+                                }
+                            });
+
+                            document.getElementById('vaultCashoutBtn').classList.add('hidden');
+                            document.getElementById('vaultRestartBtn').classList.remove('hidden');
+                        } else {
+                            vaultState.openedCount += 1;
+                            vaultState.multiplier = +(vaultState.multiplier * 1.32).toFixed(2);
+                            cell.className = 'h-20 rounded-2xl bg-gradient-to-b from-white via-zinc-200 to-zinc-400 border border-white flex flex-col items-center justify-center text-xs font-black text-zinc-950 shadow-[0_0_15px_rgba(255,255,255,0.25)]';
+                            cell.innerHTML = `<span class="flex gap-1 mb-0.5"><i class="w-1 h-2.5 bg-zinc-950 rounded-full"></i><i class="w-1 h-2.5 bg-zinc-950 rounded-full"></i></span><span>$YUKA</span>`;
+                            playTapSound();
+                            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+                            const newWin = Math.floor(vaultState.bet * vaultState.multiplier);
+                            const upcomingMult = +(vaultState.multiplier * 1.32).toFixed(2);
+                            document.getElementById('vaultCurrentWinDisplay').textContent = formatNumber(newWin);
+                            document.getElementById('vaultMultiplierBadge').textContent = `x${vaultState.multiplier.toFixed(2)}`;
+                            document.getElementById('vaultNextStepHint').textContent = vaultState.openedCount >= 7 ? 'Максимум!' : `След. шаг: x${upcomingMult.toFixed(2)}`;
+
+                            const btn = document.getElementById('vaultCashoutBtn');
+                            btn.disabled = false;
+                            btn.textContent = `Забрать ${formatNumber(newWin)} $YUKA`;
+                            renderVaultStepsBar();
+
+                            if (vaultState.openedCount >= 7) {
+                                btn.click();
+                            }
+                        }
+                    });
+
+                    grid.appendChild(cell);
+                }
+            }
+
+            document.getElementById('vaultCashoutBtn').addEventListener('click', () => {
+                if (!vaultState.active || vaultState.openedCount === 0) return;
+                const winAmount = Math.floor(vaultState.bet * vaultState.multiplier);
+                vaultState.active = false;
+                state.balance += winAmount;
+                state.totalEarned += winAmount;
+                playUpgradeSound();
+                if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                saveState();
+                updateUI();
+                showToast(`Вы забрали +${formatNumber(winAmount)} $YUKA!`);
+
+                const statusBanner = document.getElementById('vaultStatusBanner');
+                statusBanner.textContent = `Успешный вывод: +${formatNumber(winAmount)} $YUKA (x${vaultState.multiplier.toFixed(2)})`;
+                statusBanner.className = 'text-center text-[11px] font-bold text-white bg-zinc-800 border border-zinc-600 rounded-xl py-1.5 px-2';
+
+                document.getElementById('vaultCashoutBtn').classList.add('hidden');
+                document.getElementById('vaultRestartBtn').classList.remove('hidden');
+            });
+
+            document.getElementById('quitVaultBtn').addEventListener('click', () => {
+                vaultState.active = false;
+                vaultGameArea.classList.add('hidden');
+                gamesMenu.classList.remove('hidden');
+            });
+
+            document.getElementById('startVaultBtn').addEventListener('click', startVaultGame);
+            document.getElementById('vaultRestartBtn').addEventListener('click', startVaultGame);
+
+            // Навигация по вкладкам
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const target = btn.dataset.tab;
+                    document.querySelectorAll('.nav-btn').forEach(b => {
+                        if (b.dataset.tab === target) {
+                            b.className = 'nav-btn active flex flex-col items-center justify-center py-2 rounded-2xl bg-zinc-800/90 text-white border border-zinc-700/70 transition';
+                        } else {
+                            b.className = 'nav-btn flex flex-col items-center justify-center py-2 rounded-2xl text-zinc-400 hover:text-zinc-200 border border-transparent transition';
+                        }
+                    });
+
+                    ['mine', 'upgrades', 'games', 'leaderboard'].forEach(t => {
+                        const sec = document.getElementById(`tab-${t}`);
+                        if (t === target) sec.classList.remove('hidden');
+                        else sec.classList.add('hidden');
+                    });
+
+                    if (target !== 'games') {
+                        stopBlitzGame(false);
+                    }
+                    if (target === 'upgrades') renderUpgrades();
+                    if (target === 'leaderboard') renderLeaderboard();
+                    if (target === 'games') updateGamesUI();
+                });
+            });
+
+            // Обновление интерфейса
+            function updateUI() {
+                const maxEnergy = getMaxEnergy();
+                const clickPower = getClickPower();
+                const regen = getRegenSpeed();
+                const passive = getPassiveIncome();
+                const league = getLeagueInfo(state.totalEarned);
+
+                document.getElementById('balanceDisplay').textContent = formatNumber(state.balance);
+                document.getElementById('shopBalanceDisplay').textContent = formatCompact(state.balance);
+                const gamesBalEl = document.getElementById('gamesBalanceDisplay');
+                if (gamesBalEl) gamesBalEl.textContent = formatCompact(state.balance);
+
+                document.getElementById('clickPowerDisplay').textContent = formatNumber(clickPower);
+                document.getElementById('regenDisplay').textContent = formatNumber(regen);
+                document.getElementById('passiveIncomeHeader').textContent = formatNumber(passive);
+
+                document.getElementById('energyDisplay').textContent = Math.floor(state.energy);
+                document.getElementById('maxEnergyDisplay').textContent = maxEnergy;
+                document.getElementById('energyBar').style.width = `${Math.min(100, (state.energy / maxEnergy) * 100)}%`;
+                document.getElementById('energyChargesBadge').textContent = `${state.charges}/3`;
+
+                document.getElementById('leagueNameHeader').textContent = league.current.name;
+                document.getElementById('leagueProgressPercent').textContent = `${Math.floor(league.progress)}%`;
+                document.getElementById('leagueProgressBar').style.width = `${league.progress}%`;
+                document.getElementById('nextLeagueLabel').textContent = league.next
+                    ? `До лиги ${league.next.name}`
+                    : 'Максимальная лига';
+
+                const ranked = getAllRankedPlayers();
+                const me = ranked.find(p => p.isPlayer);
+                if (me) {
+                    document.getElementById('headerRankBadge').textContent = `#${me.rank}`;
+                }
+            }
+
+            // Игровой цикл (1 раз в секунду: восстановление стамины + авто-майнер)
+            setInterval(() => {
+                const maxE = getMaxEnergy();
+                const regen = getRegenSpeed();
+                const passive = getPassiveIncome();
+
+                if (state.energy < maxE) {
+                    state.energy = Math.min(maxE, state.energy + regen);
+                }
+                if (passive > 0) {
+                    state.balance += passive;
+                    state.totalEarned += passive;
+                }
+                updateUI();
+            }, 1000);
+
+            // Автосохранение прогресса каждые 5 секунд в фоне
+            setInterval(() => {
+                saveState();
+            }, 5000);
+
+            window.addEventListener('beforeunload', saveState);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') saveState();
+            });
+
+            // Инициализация
+            updateSoundIcon();
+            updateUI();
+            renderUpgrades();
+        })();
+    </script>
+</body>
+</html>
